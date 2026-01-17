@@ -121,7 +121,7 @@ st.markdown("""
 FOLDER_ID = "1hX2jwUrAgi4Fr8xkcFWjCW6vbk6lsIlP" 
 FILE_NAME = "Kompilasi_Data_1Tahun.csv"
 
-# Bobot scoring (dipertahankan)
+# Bobot scoring
 W = dict(
     trend_akum=0.40, trend_ff=0.30, trend_mfv=0.20, trend_mom=0.10,
     mom_price=0.40,  mom_vol=0.25,  mom_akum=0.25,  mom_ff=0.10,
@@ -200,7 +200,7 @@ def load_data():
         return pd.DataFrame(), f"❌ Data Load Error: {e}", "error"
 
 # ==============================================================================
-# 🧠 4) ANALYTICS ENGINE (ALL LOGIC RESTORED)
+# 🧠 4) ANALYTICS ENGINE
 # ==============================================================================
 def pct_rank(s: pd.Series):
     s = pd.to_numeric(s, errors="coerce")
@@ -254,7 +254,6 @@ def calculate_potential_score(df, latest_date):
 
 @st.cache_data(ttl=3600)
 def calculate_flow_leaders(df, max_date):
-    """Fungsi Restorasi Tab NFF & Money Flow"""
     periods = {'7D': 7, '30D': 30, '90D': 90}
     nff_results = {}
     mfv_results = {}
@@ -280,7 +279,6 @@ def calculate_flow_leaders(df, max_date):
     return nff_results, mfv_results
 
 def run_backtest_analysis(df, days_back=90):
-    """Fungsi Restorasi Backtest Logic"""
     all_dates = sorted(df['Last Trading Date'].unique())
     if len(all_dates) < days_back: days_back = len(all_dates) - 30 
     start_idx = max(30, len(all_dates) - days_back)
@@ -294,7 +292,6 @@ def run_backtest_analysis(df, days_back=90):
         try:
             top20, _, status = calculate_potential_score(df, sim_date_ts)
             if status == "success" and not top20.empty:
-                # Ambil top 5 saja per hari biar ga kebanyakan
                 for idx, row in top20.head(5).iterrows():
                     code = row['Stock Code']
                     entry_price = row['last_price']
@@ -504,7 +501,7 @@ elif menu == "🔍 Deep Dive Analysis":
             st.plotly_chart(fig2, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-# PAGE 3: DATA EXPLORER (RESTORED)
+# PAGE 3: DATA EXPLORER
 elif menu == "📋 Data Explorer":
     st.markdown('<h2 style="color:#2B3674;">📋 Raw Data Filter</h2>', unsafe_allow_html=True)
     st.markdown('<div class="css-card">', unsafe_allow_html=True)
@@ -525,19 +522,28 @@ elif menu == "🏆 Algorithmic Picks":
             col_res1, col_res2 = st.columns([2, 1])
             with col_res1:
                 st.markdown('<div class="css-card"><div class="card-title">📋 Leaderboard</div>', unsafe_allow_html=True)
+                
+                # --- FIX: Format Angka dengan Koma ---
                 display_cols = ['Rank', 'Stock Code', 'last_price', 'total_net_ff_rp', 'total_money_flow', 'avg_change_pct', 'sector', 'Trend Score', 'Momentum Score', 'Potential Score']
+                
+                # Apply Style Formatting (Rp 1,000,000)
                 st.dataframe(
-                    top20[display_cols],
+                    top20[display_cols].style.format({
+                        'last_price': 'Rp {:,.0f}',
+                        'total_net_ff_rp': 'Rp {:,.0f}',
+                        'total_money_flow': 'Rp {:,.0f}',
+                        'avg_change_pct': '{:.2f}%',
+                        'Trend Score': '{:.1f}',
+                        'Momentum Score': '{:.1f}'
+                    }),
                     column_config={
                         "Rank": st.column_config.NumberColumn("Rank", format="%d"),
                         "Stock Code": "Stock",
-                        "last_price": st.column_config.NumberColumn("Close Price", format="Rp %,d"),
-                        "total_net_ff_rp": st.column_config.NumberColumn("Net Foreign", format="Rp %,d"),
-                        "total_money_flow": st.column_config.NumberColumn("Money Flow", format="Rp %,d"),
-                        "avg_change_pct": st.column_config.NumberColumn("Avg Chg", format="%.2f %%"),
+                        "last_price": "Close Price",
+                        "total_net_ff_rp": "Net Foreign",
+                        "total_money_flow": "Money Flow",
+                        "avg_change_pct": "Avg Chg",
                         "sector": "Sector",
-                        "Trend Score": st.column_config.NumberColumn("Trend", format="%.1f"),
-                        "Momentum Score": st.column_config.NumberColumn("Momentum", format="%.1f"),
                         "Potential Score": st.column_config.ProgressColumn("Final Score", min_value=0, max_value=100, format="%.1f"),
                     },
                     hide_index=True, use_container_width=True, height=600
@@ -557,7 +563,7 @@ elif menu == "🏆 Algorithmic Picks":
                 st.metric("Last Price", f"Rp {best['last_price']:,.0f}")
                 st.markdown('</div>', unsafe_allow_html=True)
 
-# PAGE 5: FLOW ANALYSIS (RESTORED)
+# PAGE 5: FLOW ANALYSIS
 elif menu == "🌊 Flow Analysis (NFF/MF)":
     st.markdown('<h2 style="color:#2B3674;">🌊 Foreign & Money Flow Analysis</h2>', unsafe_allow_html=True)
     st.markdown('<div class="css-card">', unsafe_allow_html=True)
@@ -568,21 +574,22 @@ elif menu == "🌊 Flow Analysis (NFF/MF)":
     
     def show_flow_table(data_dict, col_name):
         c1, c2, c3 = st.columns(3)
+        fmt = {col_name: 'Rp {:,.0f}', 'Close': 'Rp {:,.0f}'}
         with c1: 
             st.markdown("##### 📅 7 Days")
-            st.dataframe(data_dict['7D'].head(10), hide_index=True, use_container_width=True, column_config={col_name: st.column_config.NumberColumn(format="Rp %,d"), "Close": st.column_config.NumberColumn(format="Rp %,d")})
+            st.dataframe(data_dict['7D'].head(10).style.format(fmt), hide_index=True, use_container_width=True)
         with c2: 
             st.markdown("##### 📅 30 Days")
-            st.dataframe(data_dict['30D'].head(10), hide_index=True, use_container_width=True, column_config={col_name: st.column_config.NumberColumn(format="Rp %,d"), "Close": st.column_config.NumberColumn(format="Rp %,d")})
+            st.dataframe(data_dict['30D'].head(10).style.format(fmt), hide_index=True, use_container_width=True)
         with c3: 
             st.markdown("##### 📅 90 Days")
-            st.dataframe(data_dict['90D'].head(10), hide_index=True, use_container_width=True, column_config={col_name: st.column_config.NumberColumn(format="Rp %,d"), "Close": st.column_config.NumberColumn(format="Rp %,d")})
+            st.dataframe(data_dict['90D'].head(10).style.format(fmt), hide_index=True, use_container_width=True)
 
     with subtab1: show_flow_table(nff_res, 'Total Net FF (Rp)')
     with subtab2: show_flow_table(mfv_res, 'Total Money Flow (Rp)')
     st.markdown('</div>', unsafe_allow_html=True)
 
-# PAGE 6: BACKTEST SYSTEM (RESTORED)
+# PAGE 6: BACKTEST SYSTEM
 elif menu == "🧪 Backtest System":
     st.markdown('<h2 style="color:#2B3674;">🧪 Strategy Backtester</h2>', unsafe_allow_html=True)
     st.markdown('<div class="css-card">', unsafe_allow_html=True)
@@ -601,14 +608,15 @@ elif menu == "🧪 Backtest System":
                 
                 st.markdown("#### 📜 Signal Log")
                 st.dataframe(
-                    df_bt.sort_values('Signal Date', ascending=False),
+                    df_bt.sort_values('Signal Date', ascending=False).style.format({
+                        'Entry Price': 'Rp {:,.0f}',
+                        'Current Price': 'Rp {:,.0f}',
+                        'Return (%)': '{:.2f}%',
+                        'Score': '{:.1f}'
+                    }),
                     hide_index=True, use_container_width=True,
                     column_config={
-                        "Signal Date": st.column_config.DateColumn("Date", format="DD MMM YYYY"),
-                        "Entry Price": st.column_config.NumberColumn(format="Rp %,d"),
-                        "Current Price": st.column_config.NumberColumn(format="Rp %,d"),
-                        "Return (%)": st.column_config.NumberColumn(format="%.2f %%"),
-                        "Score": st.column_config.NumberColumn(format="%.1f")
+                        "Signal Date": st.column_config.DateColumn("Date", format="DD MMM YYYY")
                     }
                 )
             else: st.warning("No signals found in this period.")
@@ -638,7 +646,12 @@ elif menu == "💼 Portfolio Simulator":
                     r1.markdown(f"""<div class="css-card"><div style="color:#A3AED0;">Final Value</div><div style="font-size:24px; font-weight:bold; color:#2B3674;">Rp {sum_port['Final Portfolio Value']:,.0f}</div></div>""", unsafe_allow_html=True)
                     r2.markdown(f"""<div class="css-card"><div style="color:#A3AED0;">Net Profit</div><div style="font-size:24px; font-weight:bold; color:{'green' if sum_port['Net Profit']>0 else 'red'};">Rp {sum_port['Net Profit']:,.0f}</div></div>""", unsafe_allow_html=True)
                     r3.markdown(f"""<div class="css-card"><div style="color:#A3AED0;">ROI</div><div style="font-size:24px; font-weight:bold; color:#4318FF;">{sum_port['Total ROI']:.2f}%</div></div>""", unsafe_allow_html=True)
-                    st.dataframe(df_port[['Stock Code', 'Sector', 'Buy Price', 'Sell Price', 'Gain/Loss (Rp)', 'ROI (%)']], use_container_width=True, column_config={"Buy Price": st.column_config.NumberColumn(format="Rp %,d"), "Sell Price": st.column_config.NumberColumn(format="Rp %,d"), "Gain/Loss (Rp)": st.column_config.NumberColumn(format="Rp %,d"), "ROI (%)": st.column_config.NumberColumn(format="%.2f %%")})
+                    st.dataframe(
+                        df_port[['Stock Code', 'Sector', 'Buy Price', 'Sell Price', 'Gain/Loss (Rp)', 'ROI (%)']].style.format({
+                            'Buy Price': 'Rp {:,.0f}', 'Sell Price': 'Rp {:,.0f}', 'Gain/Loss (Rp)': 'Rp {:,.0f}', 'ROI (%)': '{:.2f}%'
+                        }),
+                        use_container_width=True
+                    )
     st.markdown('</div>', unsafe_allow_html=True)
 
 # PAGE 8: MSCI
@@ -676,4 +689,4 @@ elif menu == "🌏 MSCI Projector":
 
 # --- FOOTER ---
 st.markdown("---")
-st.markdown("<center style='color:#A3AED0;'> IDX Quant Pro v2.1 • Powered by Streamlit </center>", unsafe_allow_html=True)
+st.markdown("<center style='color:#A3AED0;'> IDX Quant Pro v2.2 • Powered by Streamlit </center>", unsafe_allow_html=True)
