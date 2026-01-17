@@ -1525,9 +1525,38 @@ with tabs[6]:
             
             st.markdown("### 📊 Leaderboard Saham")
             
+            # FIXED: Perbaikan di sini - pastikan string ditutup dengan benar
             freq_stats = df_backtest.groupby('Stock Code').agg(
                 Frekuensi=('Signal Date', 'count'),
                 Avg_Return=('Return to Date (%)', 'mean'),
                 Win_Rate=('Return to Date (%)', lambda x: (x > 0).mean() * 100),
                 Total_Return=('Return to Date (%)', 'sum')
-            ).reset_index().sort_values(['Frek
+            ).reset_index().sort_values(['Frekuensi', 'Avg_Return'], ascending=[False, False])
+            
+            # Konversi Frekuensi ke int untuk ProgressColumn
+            max_freq = int(freq_stats['Frekuensi'].max()) if not freq_stats.empty else 1
+            
+            st.dataframe(
+                freq_stats,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Stock Code": st.column_config.TextColumn("Kode Saham"),
+                    "Frekuensi": st.column_config.ProgressColumn(
+                        "Frekuensi Sinyal",
+                        format="%d x",
+                        max_value=max_freq
+                    ),
+                    "Avg_Return": st.column_config.NumberColumn("Avg Return (%)", format="%.2f"),
+                    "Win_Rate": st.column_config.NumberColumn("Win Rate (%)", format="%.1f"),
+                    "Total_Return": st.column_config.NumberColumn("Total Return (%)", format="%.2f")
+                }
+            )
+            
+            with st.expander("📋 Detail Log Backtest"):
+                st.dataframe(
+                    df_backtest.sort_values('Signal Date', ascending=False),
+                    use_container_width=True
+                )
+        else:
+            st.warning("Tidak ada data backtest yang dihasilkan.")
