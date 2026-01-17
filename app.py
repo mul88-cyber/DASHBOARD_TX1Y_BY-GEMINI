@@ -279,9 +279,8 @@ def calculate_msci_projection_v2(df, latest_date, usd_rate):
     df_msci = pd.DataFrame(results).sort_values(by='Float Cap ($B)', ascending=False)
     return df_msci
 
-# Simulai Portfolio
+# Simulasi Portfolio
 def simulate_portfolio_range(df, capital, start, end):
-    # Simplified Logic for Portfolio
     top20, _, _ = calculate_potential_score(df, start)
     if top20.empty: return pd.DataFrame(), {}, "error"
     
@@ -477,7 +476,7 @@ elif menu == "🔍 Deep Dive Analysis":
             stock_df['Cum NFF'] = stock_df['NFF (Rp)'].cumsum()
             fig2 = px.area(stock_df, x='Last Trading Date', y='Cum NFF', title='Cumulative Foreign Flow (YTD)')
             fig2.update_layout(plot_bgcolor='white', font=dict(color='#2B3674'))
-            # --- FIX: Menggunakan fillcolor alih-alih fill_color ---
+            # Fix: use 'fillcolor' instead of 'fill_color' to avoid error
             fig2.update_traces(line_color='#4318FF', fillcolor='rgba(67, 24, 255, 0.1)')
             st.plotly_chart(fig2, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
@@ -506,13 +505,23 @@ elif menu == "🏆 Algorithmic Picks":
             with col_res1:
                 st.markdown('<div class="css-card">', unsafe_allow_html=True)
                 st.markdown('<div class="card-title">📋 Leaderboard</div>', unsafe_allow_html=True)
+                
+                # --- FIX: SELECT & RENAME COLUMNS FOR CLEAN DISPLAY ---
+                display_cols = ['Rank', 'Stock Code', 'last_price', 'total_net_ff_rp', 'total_money_flow', 'avg_change_pct', 'sector', 'Trend Score', 'Momentum Score', 'Potential Score']
+                
                 st.dataframe(
-                    top20,
+                    top20[display_cols],
                     column_config={
-                        "Potential Score": st.column_config.ProgressColumn("Score", min_value=0, max_value=100, format="%.1f"),
-                        "last_price": st.column_config.NumberColumn("Close", format="Rp %,d"),
+                        "Rank": st.column_config.NumberColumn("Rank", format="%d"),
+                        "Stock Code": "Stock",
+                        "last_price": st.column_config.NumberColumn("Close Price", format="Rp %,d"),
                         "total_net_ff_rp": st.column_config.NumberColumn("Net Foreign", format="Rp %,d"),
-                        "last_final_signal": "Signal"
+                        "total_money_flow": st.column_config.NumberColumn("Money Flow", format="Rp %,d"),
+                        "avg_change_pct": st.column_config.NumberColumn("Avg Chg", format="%.2f %%"),
+                        "sector": "Sector",
+                        "Trend Score": st.column_config.NumberColumn("Trend", format="%.1f"),
+                        "Momentum Score": st.column_config.NumberColumn("Momentum", format="%.1f"),
+                        "Potential Score": st.column_config.ProgressColumn("Final Score", min_value=0, max_value=100, format="%.1f"),
                     },
                     hide_index=True,
                     use_container_width=True,
