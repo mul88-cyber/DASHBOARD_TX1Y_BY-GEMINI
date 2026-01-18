@@ -1558,5 +1558,495 @@ with tabs[6]:
                     df_backtest.sort_values('Signal Date', ascending=False),
                     use_container_width=True
                 )
+# ==============================================================================
+# TAB 8: PORTFOLIO SIMULATOR (DIPERBAIKI)
+# ==============================================================================
+with tabs[7]:
+    st.markdown("## 💼 Portfolio Simulator")
+    st.info("Simulasi investasi berdasarkan top 20 saham potensial pada tanggal tertentu.")
+    
+    # Get available dates
+    avail_dates = sorted(df['Last Trading Date'].unique())
+    
+    # Input controls
+    col_p1, col_p2, col_p3, col_p4 = st.columns(4)
+    
+    with col_p1:
+        start_d = st.selectbox(
+            "📅 Tanggal Beli",
+            avail_dates,
+            index=max(0, len(avail_dates)-31),
+            format_func=lambda x: pd.Timestamp(x).strftime('%d-%m-%Y')
+        )
+    
+    with col_p2:
+        end_d = st.selectbox(
+            "📅 Tanggal Jual",
+            avail_dates,
+            index=len(avail_dates)-1,
+            format_func=lambda x: pd.Timestamp(x).strftime('%d-%m-%Y')
+        )
+    
+    with col_p3:
+        capital = st.number_input(
+            "💰 Modal (Rp)",
+            min_value=1_000_000,
+            max_value=1_000_000_000,
+            value=20_000_000,
+            step=1_000_000
+        )
+    
+    with col_p4:
+        st.write("")  # Spacer
+        st.write("")  # Spacer
+        btn_calc = st.button("🚀 Hitung Portfolio", use_container_width=True)
+    
+    if btn_calc:
+        if pd.Timestamp(start_d) >= pd.Timestamp(end_d):
+            st.error("❌ Tanggal Jual harus setelah Tanggal Beli.")
         else:
-            st.warning("Tidak ada data backtest yang dihasilkan.")
+            with st.spinner("📈 Menghitung portfolio..."):
+                df_port, sum_port, msg = simulate_portfolio_range(
+                    df, capital, pd.Timestamp(start_d), pd.Timestamp(end_d)
+                )
+            
+            if msg == "success" and df_port is not None and sum_port is not None:
+                # Display summary metrics
+                col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+                
+                with col_s1:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <div style="font-size:0.8rem; color:#6c757d;">Modal Awal</div>
+                        <div style="font-size:1.5rem; font-weight:700;">Rp {sum_port['Initial Capital']:,.0f}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col_s2:
+                    final_val = sum_port['Final Portfolio Value']
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <div style="font-size:0.8rem; color:#6c757d;">Saldo Akhir</div>
+                        <div style="font-size:1.5rem; font-weight:700;">Rp {final_val:,.0f}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col_s3:
+                    net_profit = sum_port['Net Profit']
+                    profit_color = "#2ecc71" if net_profit >= 0 else "#e74c3c"
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <div style="font-size:0.8rem; color:#6c757d;">Net Profit/Loss</div>
+                        <div style="font-size:1.5rem; font-weight:700; color:{profit_color};">Rp {net_profit:,.0f}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col_s4:
+                    total_roi = sum_port['Total ROI']
+                    roi_color = "#2ecc71" if total_roi >= 0 else "#e74c3c"
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <div style="font-size:0.8rem; color:#6c757d;">Total ROI</div>
+                        <div style="font-size:1.5rem; font-weight:700; color:{roi_color};">{total_roi:.2f}%</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                st.markdown("---")
+                
+                # Charts
+                col_ch1, col_ch2 = st.columns(2)
+                
+                with col_ch1:
+                    # PnL per saham
+                    df_pnl = df_port.sort_values('Gain/Loss (Rp)', ascending=False)
+                    fig_pnl = px.bar(
+                        df_pnl,
+                        x='Stock Code',
+                        y='Gain/Loss (Rp)',
+                        color='Gain/Loss (Rp)',
+                        color_continuous_scale=['#e74c3c', '#2ecc71'],
+                        title="Profit/Loss per Saham"
+                    )
+                    fig_pnl.update_layout(height=400)
+                    st.plotly_chart(fig_pnl, use_container_width=True)
+                
+                with col_ch2:
+                    # Sector distribution
+                    fig_sector = px.pie(
+                        df_port,
+                        names='Sector',
+                        values='Final Value',
+                        title="Distribusi Portfolio per Sektor",
+                        hole=0.4
+                    )
+                    fig_sector.update_layout(height=400)
+                    st.plotly_chart(fig_sector, use_container_width=True)
+                
+                # Detailed results table
+                st.markdown("### 📋 Detail Portfolio")
+                
+                # Format table
+                df_display = df_port.copy()
+                df_display['Buy Price'] = df_display['Buy Price'].apply(lambda x: f"Rp {x:,.0f}")
+                df_display['Sell Price'] = df_display['Sell Price'].apply(lambda x: f"Rp {x:,.0f}")
+                df_display['Gain/Loss (Rp)'] = df_display['Gain/Loss (Rp)'].apply(lambda x: f"Rp {x:,.0f}")
+                df_display['ROI (%)'] = df_display['ROI (%)'].apply(lambda x: f"{x:.2f}%")
+                df_display['Final Value'] = df_display['Final Value'].apply(lambda x: f"Rp {x:,.0f}")
+                
+                st.dataframe(
+                    df_display[['Stock Code', 'Sector', 'Buy Price', 'Sell Price', 'Gain/Loss (Rp)', 'ROI (%)', 'Final Value']],
+                    use_container_width=True,
+                    hide_index=True
+                )
+                
+                # Export option
+                csv = df_port.to_csv(index=False)
+                st.download_button(
+                    label="📥 Download Portfolio Results",
+                    data=csv,
+                    file_name=f"portfolio_{start_d}_to_{end_d}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+            else:
+                st.error(f"❌ {msg}")
+
+# ==============================================================================
+# TAB 9: MSCI SIMULATOR (DIPERBAIKI)
+# ==============================================================================
+with tabs[8]:
+    st.markdown("## 🌏 MSCI Indonesia Index Simulator")
+    st.info("""
+    Simulator untuk memperkirakan kandidat MSCI Standard Index berdasarkan:
+    - Market Capitalization (USD)
+    - Liquidity (ATVR - Annualized Traded Value Ratio)
+    - Free Float Percentage
+    """)
+    
+    # Check required columns
+    required_cols = ['Listed Shares', 'Free Float']
+    missing_cols = [col for col in required_cols if col not in df.columns]
+    
+    if missing_cols:
+        st.error(f"❌ Kolom yang diperlukan tidak ditemukan: {', '.join(missing_cols)}")
+        st.info("Pastikan data Anda memiliki kolom 'Listed Shares' dan 'Free Float'")
+    else:
+        # Input parameters
+        col_m1, col_m2, col_m3 = st.columns(3)
+        
+        with col_m1:
+            usd_idr = st.number_input(
+                "💵 Kurs USD/IDR Saat Ini",
+                value=16500,
+                min_value=10000,
+                max_value=20000,
+                step=50
+            )
+        
+        with col_m2:
+            min_float_mcap_usd = st.number_input(
+                "🎯 Min. Float Market Cap ($B)",
+                value=1.5,
+                min_value=0.1,
+                max_value=10.0,
+                step=0.1
+            )
+        
+        with col_m3:
+            min_atvr = st.number_input(
+                "📈 Min. Liquidity (ATVR %)",
+                value=15.0,
+                min_value=0.0,
+                max_value=100.0,
+                step=1.0
+            )
+        
+        # Calculate button
+        if st.button("🚀 Hitung MSCI Projection", use_container_width=True):
+            with st.spinner("📊 Menghitung proyeksi MSCI..."):
+                # Get latest date data
+                latest_date = df['Last Trading Date'].max()
+                
+                # Calculate MSCI metrics
+                df_msci = calculate_msci_projection_v2(df, latest_date, usd_idr)
+                
+                if not df_msci.empty:
+                    # Categorization function
+                    def categorize_msci(row):
+                        # Check size criteria
+                        size_ok = row['Float Cap ($B)'] >= min_float_mcap_usd
+                        
+                        # Check liquidity criteria (both 3M and 12M)
+                        liquidity_ok = (row['ATVR 3M (%)'] >= min_atvr) and (row['ATVR 12M (%)'] >= min_atvr)
+                        
+                        if size_ok and liquidity_ok:
+                            return "✅ Potential Standard"
+                        elif size_ok and not liquidity_ok:
+                            return "⚠️ Risk (Low Liquidity)"
+                        elif row['Float Cap ($B)'] >= (min_float_mcap_usd * 0.3):
+                            return "🔹 Small Cap"
+                        else:
+                            return "🔻 Micro Cap"
+                    
+                    # Apply categorization
+                    df_msci['MSCI Status'] = df_msci.apply(categorize_msci, axis=1)
+                    
+                    # Display summary
+                    st.markdown("### 📊 Summary")
+                    
+                    status_counts = df_msci['MSCI Status'].value_counts()
+                    col_sm1, col_sm2, col_sm3, col_sm4 = st.columns(4)
+                    
+                    with col_sm1:
+                        potential = status_counts.get('✅ Potential Standard', 0)
+                        st.metric("Potential Standard", potential)
+                    
+                    with col_sm2:
+                        risk = status_counts.get('⚠️ Risk (Low Liquidity)', 0)
+                        st.metric("Risk (Low Liquidity)", risk)
+                    
+                    with col_sm3:
+                        small = status_counts.get('🔹 Small Cap', 0)
+                        st.metric("Small Cap", small)
+                    
+                    with col_sm4:
+                        micro = status_counts.get('🔻 Micro Cap', 0)
+                        st.metric("Micro Cap", micro)
+                    
+                    st.markdown("---")
+                    
+                    # Visualization
+                    col_viz1, col_viz2 = st.columns(2)
+                    
+                    with col_viz1:
+                        # Scatter plot: Float Cap vs ATVR
+                        fig_msci = px.scatter(
+                            df_msci.head(50),  # Limit to top 50 for better visibility
+                            x='ATVR 12M (%)',
+                            y='Float Cap ($B)',
+                            color='MSCI Status',
+                            size='Full Cap ($B)',
+                            hover_data=['Stock Code', 'Sector', 'ATVR 3M (%)'],
+                            title="MSCI Qualification Map (Top 50)",
+                            color_discrete_map={
+                                '✅ Potential Standard': '#2ecc71',
+                                '⚠️ Risk (Low Liquidity)': '#e74c3c',
+                                '🔹 Small Cap': '#3498db',
+                                '🔻 Micro Cap': '#95a5a6'
+                            }
+                        )
+                        # Add threshold lines
+                        fig_msci.add_hline(
+                            y=min_float_mcap_usd,
+                            line_dash="dash",
+                            line_color="red",
+                            annotation_text=f"Min Float: ${min_float_mcap_usd}B"
+                        )
+                        fig_msci.add_vline(
+                            x=min_atvr,
+                            line_dash="dash",
+                            line_color="orange",
+                            annotation_text=f"Min ATVR: {min_atvr}%"
+                        )
+                        fig_msci.update_layout(height=500)
+                        st.plotly_chart(fig_msci, use_container_width=True)
+                    
+                    with col_viz2:
+                        # Top candidates table
+                        st.markdown("#### 🏆 Top Candidates (Standard Index)")
+                        
+                        potential_df = df_msci[df_msci['MSCI Status'] == '✅ Potential Standard'].copy()
+                        potential_df = potential_df.sort_values('Float Cap ($B)', ascending=False)
+                        
+                        if not potential_df.empty:
+                            # Format display
+                            display_df = potential_df[['Stock Code', 'Sector', 'Float Cap ($B)', 'ATVR 12M (%)', 'ATVR 3M (%)']].copy()
+                            display_df['Float Cap ($B)'] = display_df['Float Cap ($B)'].apply(lambda x: f"${x:.2f}B")
+                            display_df['ATVR 12M (%)'] = display_df['ATVR 12M (%)'].apply(lambda x: f"{x:.1f}%")
+                            display_df['ATVR 3M (%)'] = display_df['ATVR 3M (%)'].apply(lambda x: f"{x:.1f}%")
+                            
+                            st.dataframe(
+                                display_df,
+                                use_container_width=True,
+                                hide_index=True
+                            )
+                        else:
+                            st.info("Tidak ada saham yang memenuhi kriteria Standard Index")
+                    
+                    st.markdown("---")
+                    
+                    # Detailed results with tabs
+                    st.markdown("### 📋 Detailed Results")
+                    
+                    msci_tabs = st.tabs(["All Stocks", "By Status", "Export"])
+                    
+                    with msci_tabs[0]:
+                        # All stocks
+                        st.dataframe(
+                            df_msci.sort_values('Float Cap ($B)', ascending=False),
+                            use_container_width=True,
+                            hide_index=True
+                        )
+                    
+                    with msci_tabs[1]:
+                        # Filter by status
+                        selected_status = st.selectbox(
+                            "Filter by Status",
+                            df_msci['MSCI Status'].unique()
+                        )
+                        
+                        filtered_df = df_msci[df_msci['MSCI Status'] == selected_status]
+                        st.dataframe(
+                            filtered_df.sort_values('Float Cap ($B)', ascending=False),
+                            use_container_width=True,
+                            hide_index=True
+                        )
+                    
+                    with msci_tabs[2]:
+                        # Export options
+                        st.markdown("#### 📥 Export Data")
+                        
+                        csv = df_msci.to_csv(index=False)
+                        st.download_button(
+                            label="Download CSV",
+                            data=csv,
+                            file_name=f"msci_simulation_{latest_date.date()}.csv",
+                            mime="text/csv",
+                            use_container_width=True
+                        )
+                        
+                        # Summary stats
+                        st.markdown("#### 📊 Summary Statistics")
+                        st.json({
+                            "simulation_date": str(latest_date.date()),
+                            "usd_rate": usd_idr,
+                            "min_float_mcap_usd": min_float_mcap_usd,
+                            "min_atvr": min_atvr,
+                            "total_stocks_analyzed": len(df_msci),
+                            "status_distribution": status_counts.to_dict()
+                        })
+                else:
+                    st.error("❌ Gagal menghitung proyeksi MSCI. Data tidak tersedia.")
+        else:
+            # Show preview before calculation
+            st.markdown("#### ℹ️ Preview Criteria")
+            st.info(f"""
+            **Kriteria saat ini:**
+            - Kurs USD/IDR: Rp {usd_idr:,}
+            - Minimum Float Market Cap: ${min_float_mcap_usd}B
+            - Minimum Liquidity (ATVR): {min_atvr}%
+            
+            **Klik 'Hitung MSCI Projection' untuk memulai simulasi.**
+            """)
+
+# ==============================================================================
+# TAB 10: ANALISIS SEKTOR (TAB BARU)
+# ==============================================================================
+with tabs[9]:
+    st.markdown("## 📊 Analisis Sektor")
+    
+    # Filter by date range
+    col_s1, col_s2 = st.columns(2)
+    
+    with col_s1:
+        sector_start_date = st.date_input(
+            "Tanggal Mulai",
+            value=selected_date - timedelta(days=30),
+            max_value=selected_date
+        )
+    
+    with col_s2:
+        sector_end_date = st.date_input(
+            "Tanggal Akhir",
+            value=selected_date,
+            min_value=sector_start_date
+        )
+    
+    # Filter data by date range
+    df_sector = df[
+        (df['Last Trading Date'].dt.date >= sector_start_date) &
+        (df['Last Trading Date'].dt.date <= sector_end_date)
+    ].copy()
+    
+    if not df_sector.empty:
+        # Sector performance analysis
+        sector_stats = df_sector.groupby('Sector').agg({
+            'Stock Code': 'nunique',
+            'Close': 'mean',
+            'Change %': 'mean',
+            'Value': 'sum',
+            'NFF (Rp)': 'sum',
+            'Money Flow Value': 'sum',
+            'Volume': 'sum'
+        }).round(2)
+        
+        sector_stats = sector_stats.rename(columns={
+            'Stock Code': 'Jumlah Saham',
+            'Close': 'Avg Harga',
+            'Change %': 'Avg Change %',
+            'Value': 'Total Value (Rp)',
+            'NFF (Rp)': 'Total NFF (Rp)',
+            'Money Flow Value': 'Total MFV (Rp)',
+            'Volume': 'Total Volume'
+        })
+        
+        # Display metrics
+        st.markdown("### 📈 Performa Sektor")
+        
+        # Top performing sectors
+        top_sectors = sector_stats.sort_values('Avg Change %', ascending=False)
+        
+        col_chart1, col_chart2 = st.columns(2)
+        
+        with col_chart1:
+            fig_sector_perf = px.bar(
+                top_sectors.head(10),
+                x=top_sectors.head(10).index,
+                y='Avg Change %',
+                color='Avg Change %',
+                color_continuous_scale=px.colors.diverging.RdYlGn,
+                title="Top 10 Sektor (Avg Change %)"
+            )
+            fig_sector_perf.update_layout(height=400)
+            st.plotly_chart(fig_sector_perf, use_container_width=True)
+        
+        with col_chart2:
+            # Sector by value traded
+            fig_sector_value = px.pie(
+                sector_stats,
+                values='Total Value (Rp)',
+                names=sector_stats.index,
+                title="Distribusi Nilai Transaksi per Sektor",
+                hole=0.4
+            )
+            fig_sector_value.update_layout(height=400)
+            st.plotly_chart(fig_sector_value, use_container_width=True)
+        
+        # Detailed sector table
+        st.markdown("### 📋 Detail Statistik Sektor")
+        
+        # Format table for display
+        display_stats = sector_stats.copy()
+        display_stats['Avg Harga'] = display_stats['Avg Harga'].apply(lambda x: f"Rp {x:,.0f}")
+        display_stats['Avg Change %'] = display_stats['Avg Change %'].apply(lambda x: f"{x:.2f}%")
+        display_stats['Total Value (Rp)'] = display_stats['Total Value (Rp)'].apply(lambda x: f"Rp {x/1e9:.1f}B")
+        display_stats['Total NFF (Rp)'] = display_stats['Total NFF (Rp)'].apply(lambda x: f"Rp {x/1e9:.1f}B")
+        display_stats['Total MFV (Rp)'] = display_stats['Total MFV (Rp)'].apply(lambda x: f"Rp {x/1e9:.1f}B")
+        display_stats['Total Volume'] = display_stats['Total Volume'].apply(lambda x: f"{x/1e9:.1f}B")
+        
+        st.dataframe(
+            display_stats,
+            use_container_width=True
+        )
+        
+        # Export option
+        csv = sector_stats.to_csv()
+        st.download_button(
+            label="📥 Ekspor Data Sektor",
+            data=csv,
+            file_name=f"sector_analysis_{sector_start_date}_to_{sector_end_date}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+    else:
+        st.warning("Tidak ada data untuk periode yang dipilih.")
