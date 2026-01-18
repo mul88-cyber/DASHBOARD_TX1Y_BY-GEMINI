@@ -537,8 +537,8 @@ def calculate_msci_projection_v2(df, latest_date, usd_rate):
             # IDR Metrics
             'Float Cap (IDR T)': float_mcap_idr_t,
             # USD Metrics
-            'Full Cap ($B)': full_mcap_usd_b,
-            'Float Cap ($B)': float_mcap_usd_b,
+            'Full Cap (US$ Miliar)': full_mcap_usd_b,
+            'Float Cap (US$ Miliar)': float_mcap_usd_b,
             # Liquidity
             'ATVR 12M (%)': atvr_12m,
             'ATVR 3M (%)': atvr_3m
@@ -546,7 +546,7 @@ def calculate_msci_projection_v2(df, latest_date, usd_rate):
         
     df_msci = pd.DataFrame(results)
     # Default Sort by USD Float Cap
-    df_msci = df_msci.sort_values(by='Float Cap ($B)', ascending=False).reset_index(drop=True)
+    df_msci = df_msci.sort_values(by='Float Cap (US$ Miliar)', ascending=False).reset_index(drop=True)
     df_msci['Rank'] = df_msci.index + 1
     return df_msci
 
@@ -1745,7 +1745,7 @@ with tabs[8]:
         
         with col_m2:
             min_float_mcap_usd = st.number_input(
-                "🎯 Min. Float Market Cap ($B)",
+                "🎯 Min. Float Market Cap (US$ Miliar)",
                 value=1.5,
                 min_value=0.1,
                 max_value=10.0,
@@ -1774,7 +1774,7 @@ with tabs[8]:
                     # Categorization function
                     def categorize_msci(row):
                         # Check size criteria
-                        size_ok = row['Float Cap ($B)'] >= min_float_mcap_usd
+                        size_ok = row['Float Cap (US$ Miliar)'] >= min_float_mcap_usd
                         
                         # Check liquidity criteria (both 3M and 12M)
                         liquidity_ok = (row['ATVR 3M (%)'] >= min_atvr) and (row['ATVR 12M (%)'] >= min_atvr)
@@ -1783,7 +1783,7 @@ with tabs[8]:
                             return "✅ Potential Standard"
                         elif size_ok and not liquidity_ok:
                             return "⚠️ Risk (Low Liquidity)"
-                        elif row['Float Cap ($B)'] >= (min_float_mcap_usd * 0.3):
+                        elif row['Float Cap (US$ Miliar)'] >= (min_float_mcap_usd * 0.3):
                             return "🔹 Small Cap"
                         else:
                             return "🔻 Micro Cap"
@@ -1823,9 +1823,9 @@ with tabs[8]:
                         fig_msci = px.scatter(
                             df_msci.head(50),  # Limit to top 50 for better visibility
                             x='ATVR 12M (%)',
-                            y='Float Cap ($B)',
+                            y='Float Cap (US$ Miliar)',
                             color='MSCI Status',
-                            size='Full Cap ($B)',
+                            size='Full Cap (US$ Miliar)',
                             hover_data=['Stock Code', 'Sector', 'ATVR 3M (%)'],
                             title="MSCI Qualification Map (Top 50)",
                             color_discrete_map={
@@ -1856,12 +1856,12 @@ with tabs[8]:
                         st.markdown("#### 🏆 Top Candidates (Standard Index)")
                         
                         potential_df = df_msci[df_msci['MSCI Status'] == '✅ Potential Standard'].copy()
-                        potential_df = potential_df.sort_values('Float Cap ($B)', ascending=False)
+                        potential_df = potential_df.sort_values('Float Cap (US$ Miliar)', ascending=False)
                         
                         if not potential_df.empty:
                             # Format display
-                            display_df = potential_df[['Stock Code', 'Sector', 'Float Cap ($B)', 'ATVR 12M (%)', 'ATVR 3M (%)']].copy()
-                            display_df['Float Cap ($B)'] = display_df['Float Cap ($B)'].apply(lambda x: f"${x:.2f}B")
+                            display_df = potential_df[['Stock Code', 'Sector', 'Float Cap (US$ Miliar)', 'ATVR 12M (%)', 'ATVR 3M (%)']].copy()
+                            display_df['Float Cap (US$ Miliar)'] = display_df['Float Cap (US$ Miliar)'].apply(lambda x: f"US$ {x:.2f} Miliar")
                             display_df['ATVR 12M (%)'] = display_df['ATVR 12M (%)'].apply(lambda x: f"{x:.1f}%")
                             display_df['ATVR 3M (%)'] = display_df['ATVR 3M (%)'].apply(lambda x: f"{x:.1f}%")
                             
@@ -1883,7 +1883,7 @@ with tabs[8]:
                     with msci_tabs[0]:
                         # All stocks
                         st.dataframe(
-                            df_msci.sort_values('Float Cap ($B)', ascending=False),
+                            df_msci.sort_values('Float Cap (US$ Miliar)', ascending=False),
                             use_container_width=True,
                             hide_index=True
                         )
@@ -1897,7 +1897,7 @@ with tabs[8]:
                         
                         filtered_df = df_msci[df_msci['MSCI Status'] == selected_status]
                         st.dataframe(
-                            filtered_df.sort_values('Float Cap ($B)', ascending=False),
+                            filtered_df.sort_values('Float Cap (US$ Miliar)', ascending=False),
                             use_container_width=True,
                             hide_index=True
                         )
