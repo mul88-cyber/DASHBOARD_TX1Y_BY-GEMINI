@@ -1944,7 +1944,7 @@ with tabs[4]:
             }
             
             import json
-            summary_json = json.dumps(summary_stats, indent=2)
+            summary_json = json.dumps(summary_stats, indent=2, default=str)
             
             st.download_button(
                 label="📋 Summary Stats",
