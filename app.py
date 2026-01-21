@@ -1630,23 +1630,34 @@ with tabs[4]:
                 fig_hist.update_layout(height=500)
                 st.plotly_chart(fig_hist, use_container_width=True)
             
-            # Tabel detail
+            # Tabel detail - PERBAIKAN DI SINI
             st.markdown("##### 📋 Saham dengan Dominasi Asing Tertinggi")
             
-            # Highlight saham dengan persentase > 50%
+            # Buat DataFrame untuk display dengan data asli untuk styling
+            display_pct_original = top25_pct.copy()
+            
+            # Fungsi untuk highlight berdasarkan nilai numerik asli
             def highlight_high_percentage(row):
-                if row['Persentase Foreign vs Total Value'] > 50:
+                # Gunakan nilai asli dari DataFrame original
+                pct_value = display_pct_original.loc[row.name, 'Persentase Foreign vs Total Value']
+                if pct_value > 50:
                     return ['background-color: #d4edda'] * len(row)
-                elif row['Persentase Foreign vs Total Value'] > 30:
+                elif pct_value > 30:
                     return ['background-color: #fff3cd'] * len(row)
                 else:
                     return [''] * len(row)
             
+            # Buat DataFrame untuk display yang diformat
             display_pct = top25_pct.copy()
             display_pct['Total Foreign Activity (Rp)'] = display_pct['Total Foreign Activity (Rp)'].apply(lambda x: format_rupiah(x))
             display_pct['Value'] = display_pct['Value'].apply(lambda x: format_rupiah(x))
             display_pct['NFF (Rp)'] = display_pct['NFF (Rp)'].apply(lambda x: format_rupiah(x))
             display_pct['Persentase Foreign vs Total Value'] = display_pct['Persentase Foreign vs Total Value'].apply(lambda x: f"{x:.2f}%")
+            display_pct['Persentase NFF vs Total Value'] = display_pct['Persentase NFF vs Total Value'].apply(lambda x: f"{x:.2f}%")
+            
+            # Pastikan index sama untuk mapping
+            display_pct_original = display_pct_original.set_index(top25_pct.index)
+            display_pct = display_pct.set_index(top25_pct.index)
             
             # Create styled dataframe
             styled_df = display_pct[['Rank', 'Stock Code', 'Sector', 'Persentase Foreign vs Total Value', 
@@ -1673,7 +1684,7 @@ with tabs[4]:
                 }
             )
             
-            # Insight box
+            # Insight box - PERBAIKAN: gunakan nilai asli dari top25_pct
             high_dominance = top25_pct[top25_pct['Persentase Foreign vs Total Value'] > 50]
             if not high_dominance.empty:
                 st.success(f"🎯 **Insight**: {len(high_dominance)} saham memiliki dominasi asing >50%. "
